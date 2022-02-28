@@ -1,0 +1,178 @@
+---
+
+ # beggining of the playbook the name of the first play is display below name: "start up and shutdown"
+ - name: First play starts here
+ #name of the hosts that this play with utilized they are locate in the hosts file on this directory
+   hosts: nodezero
+ #variables prompt to pick the which plays do you want to execute from this list
+   vars_prompt:
+    - name: "options"
+      prompt: "Which from the following options do you want to execute?\n1- startup\n2- shutdown\n"
+      private: no
+ #task that will be run against this remote host watch for the indentation. "WRONG INDENTATION CAN BREAK THE PLAY"
+   tasks:
+    - name: Start gluster volume data
+      gluster_volume:
+        state: started
+        name: data
+      check_mode: yes
+      when: ( options == "1" )
+
+    - name: Start gluster volume engine
+      gluster_volume:
+        state: started
+        name: engine
+      check_mode: yes
+      when: ( options == "1" )
+
+    - name: Start gluster volume isostore
+      gluster_volume:
+        state: started
+        name: isostore
+      check_mode: yes
+      when: ( options == "1" )
+
+    - name: Start gluster volume vmstore
+      gluster_volume:
+        state: started
+        name: vmstore
+      check_mode: yes
+      when: ( options == "1" )
+
+    - name: Start gluster volume shared_storage
+      gluster_volume:
+        state: started
+        name: shared_storage
+      check_mode: yes
+      when: ( options == "1" )
+  #second play start here to restart the ovirt-ha-broker and ovirt-ha-agent on systemd  
+    
+ - name: Play to restart all nodes ovirt-ha-broker and ovirt-ha-agent on all the nodes 
+   hosts: nodes
+   tasks:
+    - name: Restart ovirt-ha-broker
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: yes
+        name: ovirt-ha-broker
+        when: ( options == "1" )
+
+    - name: Restart ovirt-ha-agent
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: yes
+        name: ovirt-ha-agent
+        when: ( options == "1" )
+   # third play start here tp set the maintenance mode of the hosted engine to none
+ - name: Play set hosted engine to none on node0
+   hosts: nodezero
+   tasks:
+    - name: Set the Maintenance Mode of hosted engine to none 
+      ansible.builtin.shell: hosted-engine --set-maintenance --mode=none 
+      args:
+        executable: /bin/bash
+      check_mode: yes
+      when: ( options == "1" )
+#-------------------------------------------------------------------------------------------------------------------------------------------------      
+ #shutdown play starts here
+
+ - name: Shutdown procedure begins
+   hosts: nodezero
+   tasks:
+    - name: Set the Maintenance Mode of hosted engine to global on node0
+      ansible.builtin.shell: |
+       hosted-engine --set-maintenance --mode=global
+       sleep 10
+       hosted-engine --vm-shutdown
+      args:
+        executable: /bin/bash
+      check_mode: yes
+      when: ( options == "2" )
+
+ - name: Play to restart all nodes ovirt-ha-broker and ovirt-ha-agent on all the nodes 
+   hosts: nodes
+   tasks:
+    - name: Stop ovirt-ha-broker
+      ansible.builtin.systemd:
+        name: ovirt-ha-broker
+        state: stopped
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Stop ovirt-ha-agent
+      ansible.builtin.systemd:
+        name: ovirt-ha-agent
+        state: stopped
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Hosted engine disconnect-Storage
+      ansible.builtin.shell: hosted-engine --disconnect-storage
+      args:
+        executable: /bin/bash
+      check_mode: yes
+      when: ( options == "2" )
+
+ - name: Gluster volume Shutdown
+   hosts: nodezero
+   tasks:
+    - name: Start gluster volume data
+      gluster_volume:
+        state: stopped
+        name: data
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Start gluster volume engine
+      gluster_volume:
+        state: stopped
+        name: engine
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Start gluster volume isostore
+      gluster_volume:
+        state: stopped
+        name: isostore
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Start gluster volume vmstore
+      gluster_volume:
+        state: stopped
+        name: vmstore
+      check_mode: yes
+      when: ( options == "2" )
+
+    - name: Start gluster volume shared_storage
+      gluster_volume:
+        state: stopped
+        name: shared_storage
+      check_mode: yes
+      when: ( options == "2" )
+
+  # Poweroff all the nodes play starts here
+ - name: Poweroff all Nodes
+   hosts: nodes
+   tasks:
+    - name:
+      ansible.builtin.shell: poweroff
+      args:
+        executable: /bin/bash
+      check_mode: yes
+      when: ( options == "2" )
+
+  # Play to shutdown all the vms on the masternode IDM, Satellite and IDM2
+ - name: Poweroff all Nodes
+   hosts: control
+   tasks:
+    - name:
+      ansible.builtin.shell: |
+       satellite "poweroff"
+       idm2 "poweroff"
+       idm  "poweroff"
+      args:
+        executable: /bin/bash
+      check_mode: yes
+      when: ( options == "2" )
+...

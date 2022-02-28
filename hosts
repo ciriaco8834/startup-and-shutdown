@@ -1,0 +1,15 @@
+[control]
+defender ansible_connection=local 
+
+[nodezero]
+node0
+[nodeone]
+node1
+[nodetwo]
+node2
+
+[nodes:children]
+nodezero
+nodeone
+nodetwo
+
